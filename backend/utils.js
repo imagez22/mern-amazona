@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import mg from 'mailgun-js';
 
@@ -113,3 +114,16 @@ export const payOrderEmailTemplate = (order) => {
   </p>
   `;
 };
+
+// Connect to MongoDB -- exported as default so other scripts (like seed.js) can import
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
