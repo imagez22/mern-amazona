@@ -5,6 +5,8 @@ import HomeScreen from './screens/HomeScreen';
 import ProductScreen from './screens/ProductScreen';
 import Navbar from 'react-bootstrap/Navbar';
 import Badge from 'react-bootstrap/Badge';
+import AdminAddProduct from './pages/AdminAddProduct';
+import AdminDashboard from './pages/AdminDashboard';
 import Nav from 'react-bootstrap/Nav';
 import NavDropdown from 'react-bootstrap/NavDropdown';
 import Container from 'react-bootstrap/Container';
@@ -36,11 +38,11 @@ import UserEditScreen from './screens/UserEditScreen';
 import MapScreen from './screens/MapScreen';
 import ForgetPasswordScreen from './screens/ForgetPasswordScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
-
 function App() {
   const { state, dispatch: ctxDispatch } = useContext(Store);
   const { fullBox, cart, userInfo } = state;
-
+// Paystack is used in `PlaceOrderScreen` via `react-paystack`.
+  
   const signoutHandler = () => {
     ctxDispatch({ type: 'USER_SIGNOUT' });
     localStorage.removeItem('userInfo');
@@ -273,6 +275,10 @@ function App() {
               ></Route>
 
               <Route path="/" element={<HomeScreen />} />
+              <Route path="/admin/add-product" element={<AdminAddProduct />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+
             </Routes>
           </Container>
         </main>

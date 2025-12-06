@@ -1,17 +1,18 @@
-import Axios from 'axios';
+import axios from 'axios';
 import React, { useContext, useEffect, useReducer } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate } from 'react-router-dom';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Card from 'react-bootstrap/Card';
-import Button from 'react-bootstrap/Button';
+// Button is not used directly here (buttons come from Paystack component or markup)
 import ListGroup from 'react-bootstrap/ListGroup';
 import { toast } from 'react-toastify';
 import { getError } from '../utils';
 import { Store } from '../Store';
 import CheckoutSteps from '../components/CheckoutSteps';
 import LoadingBox from '../components/LoadingBox';
+import { PaystackButton } from 'react-paystack';
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -25,6 +26,8 @@ const reducer = (state, action) => {
       return state;
   }
 };
+
+
 
 export default function PlaceOrderScreen() {
   const navigate = useNavigate();
@@ -44,31 +47,78 @@ export default function PlaceOrderScreen() {
   cart.taxPrice = round2(0.15 * cart.itemsPrice);
   cart.totalPrice = cart.itemsPrice + cart.shippingPrice + cart.taxPrice;
 
-  const placeOrderHandler = async () => {
+  // Paystack button props — use cart totals (no `order` exists yet)
+  const componentProps = {
+    email: userInfo.email,
+    amount: Math.round(cart.totalPrice * 100),
+    currency: 'GHS',
+    publicKey: process.env.REACT_APP_PAYSTACK_PUBLIC_KEY || 'pk_test_yourPublicKey',
+    text: 'Pay with Paystack',
+    onSuccess: () => {
+      handlePaystackSuccess();
+    },
+    onClose: () => alert('Payment cancelled'),
+  };
+
+  // create order helper (returns created order data)
+  const createOrder = async () => {
+    const { data } = await axios.post(
+      '/api/orders',
+      {
+        orderItems: cart.cartItems,
+        shippingAddress: cart.shippingAddress,
+        paymentMethod: cart.paymentMethod,
+        itemsPrice: cart.itemsPrice,
+        shippingPrice: cart.shippingPrice,
+        taxPrice: cart.taxPrice,
+        totalPrice: cart.totalPrice,
+      },
+      {
+        headers: {
+          authorization: `Bearer ${userInfo.token}`,
+        },
+      }
+    );
+    return data.order;
+  };
+
+  // Called when Paystack reports success: create order, mark it paid, navigate
+  const handlePaystackSuccess = async () => {
     try {
       dispatch({ type: 'CREATE_REQUEST' });
-
-      const { data } = await Axios.post(
-        '/api/orders',
+      const order = await createOrder();
+      // mark order as paid using our API
+      await axios.put(
+        `/api/orders/${order._id}/pay`,
         {
-          orderItems: cart.cartItems,
-          shippingAddress: cart.shippingAddress,
-          paymentMethod: cart.paymentMethod,
-          itemsPrice: cart.itemsPrice,
-          shippingPrice: cart.shippingPrice,
-          taxPrice: cart.taxPrice,
-          totalPrice: cart.totalPrice,
+          status: 'success',
+          update_time: Date.now(),
+          payer: { email_address: userInfo.email },
         },
         {
-          headers: {
-            authorization: `Bearer ${userInfo.token}`,
-          },
+          headers: { authorization: `Bearer ${userInfo.token}` },
         }
       );
       ctxDispatch({ type: 'CART_CLEAR' });
       dispatch({ type: 'CREATE_SUCCESS' });
       localStorage.removeItem('cartItems');
-      navigate(`/order/${data.order._id}`);
+      navigate(`/order/${order._id}`);
+    } catch (err) {
+      dispatch({ type: 'CREATE_FAIL' });
+      toast.error(getError(err));
+    }
+  };
+
+
+  const placeOrderHandler = async () => {
+    try {
+      dispatch({ type: 'CREATE_REQUEST' });
+
+      const order = await createOrder();
+      ctxDispatch({ type: 'CART_CLEAR' });
+      dispatch({ type: 'CREATE_SUCCESS' });
+      localStorage.removeItem('cartItems');
+      navigate(`/order/${order._id}`);
     } catch (err) {
       dispatch({ type: 'CREATE_FAIL' });
       toast.error(getError(err));
@@ -175,13 +225,7 @@ export default function PlaceOrderScreen() {
                 </ListGroup.Item>
                 <ListGroup.Item>
                   <div className="d-grid">
-                    <Button
-                      type="button"
-                      onClick={placeOrderHandler}
-                      disabled={cart.cartItems.length === 0}
-                    >
-                      Place Order
-                    </Button>
+                   <PaystackButton className="btn btn-primary" {...componentProps} />
                   </div>
                   {loading && <LoadingBox></LoadingBox>}
                 </ListGroup.Item>

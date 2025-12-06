@@ -1,13 +1,12 @@
-// frontend/src/screens/DashboardScreen.js
+// frontend/src/pages/AdminDashboard.js
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-const DashboardScreen = () => {
+const AdminDashboard = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
-  const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -15,13 +14,13 @@ const DashboardScreen = () => {
 
   useEffect(() => {
     if (!token) {
-      navigate('/signin');
+      navigate('/signin'); // redirect if not logged in
       return;
     }
 
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
-        const [prodRes, orderRes, userRes, summaryRes] = await Promise.all([
+        const [prodRes, orderRes, userRes] = await Promise.all([
           fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -31,52 +30,33 @@ const DashboardScreen = () => {
           fetch(`${process.env.REACT_APP_BACKEND_URL}/api/users`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(`${process.env.REACT_APP_BACKEND_URL}/api/orders/summary`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
         ]);
 
-        if (!prodRes.ok || !orderRes.ok || !userRes.ok || !summaryRes.ok) {
-          throw new Error('Failed to fetch dashboard data');
+        // Check for errors
+        if (!prodRes.ok || !orderRes.ok || !userRes.ok) {
+          throw new Error('Failed to fetch admin data');
         }
 
-        const [prodData, orderData, userData, summaryData] = await Promise.all([
-          prodRes.json(),
-          orderRes.json(),
-          userRes.json(),
-          summaryRes.json(),
-        ]);
-
-        setProducts(prodData || []);
-        setOrders(orderData || []);
-        setUsers(userData || []);
-        setSummary(summaryData || {});
+        setProducts(await prodRes.json());
+        setOrders(await orderRes.json());
+        setUsers(await userRes.json());
         setLoading(false);
       } catch (err) {
         console.error(err);
-        setError(err.message || 'Something went wrong');
+        setError(err.message);
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchData();
   }, [token, navigate]);
 
-  if (loading) return <div>Loading dashboard...</div>;
+  if (loading) return <div>Loading admin dashboard...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
     <div style={{ padding: '20px' }}>
       <h1>Admin Dashboard</h1>
-
-      <section style={{ marginBottom: '30px' }}>
-        <h2>Summary</h2>
-        <ul>
-          <li>Total Orders: {summary?.numOrders ?? 0}</li>
-          <li>Total Sales: ${summary?.totalSales ?? 0}</li>
-          <li>Total Users: {summary?.users ?? 0}</li>
-        </ul>
-      </section>
 
       <section style={{ marginBottom: '30px' }}>
         <h2>Products</h2>
@@ -104,7 +84,7 @@ const DashboardScreen = () => {
           <ul>
             {orders.map((o) => (
               <li key={o._id}>
-                Order #{o._id} - ${o.totalPrice} - {o.isPaid ? 'Paid' : 'Pending'}
+                Order #{o._id} - {o.totalPrice} USD - {o.isPaid ? 'Paid' : 'Pending'}
               </li>
             ))}
           </ul>
@@ -129,4 +109,4 @@ const DashboardScreen = () => {
   );
 };
 
-export default DashboardScreen;
+export default AdminDashboard;
